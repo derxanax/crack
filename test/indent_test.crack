@@ -1,0 +1,25 @@
+conlog "=== Тест пробельного синтаксиса ==="
+
+x = 10
+conlog "Значение x:"
+conlog (x)
+
+if (x > 5):
+  conlog "x больше 5"
+  y = x * 2
+  conlog "y = x * 2 ="
+  conlog (y)
+else:
+  conlog "x меньше или равно 5"
+
+i = 0
+while (i < 3):
+  conlog "Цикл while, i ="
+  conlog (i)
+  i = i + 1
+
+for (j = 0; j < 2; j = j + 1):
+  conlog "Цикл for, j ="
+  conlog (j)
+
+conlog "=== Тест завершен ===" 

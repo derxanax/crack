@@ -1,0 +1,44 @@
+{
+  "name": "math",
+  "version": "1.0.0",
+  "description": "Математические функции для языка Crack",
+  "author": "derxanax",
+  "functions": [
+    {
+      "name": "add",
+      "description": "Сложение двух чисел",
+      "parameters": ["a", "b"],
+      "returns": "Сумма a + b"
+    },
+    {
+      "name": "subtract", 
+      "description": "Вычитание двух чисел",
+      "parameters": ["a", "b"],
+      "returns": "Разность a - b"
+    },
+    {
+      "name": "multiply",
+      "description": "Умножение двух чисел", 
+      "parameters": ["a", "b"],
+      "returns": "Произведение a * b"
+    },
+    {
+      "name": "divide",
+      "description": "Деление двух чисел",
+      "parameters": ["a", "b"], 
+      "returns": "Частное a / b"
+    },
+    {
+      "name": "power",
+      "description": "Возведение в степень",
+      "parameters": ["base", "exponent"],
+      "returns": "base в степени exponent"
+    },
+    {
+      "name": "sqrt",
+      "description": "Квадратный корень",
+      "parameters": ["number"],
+      "returns": "Квадратный корень числа"
+    }
+  ]
+} 

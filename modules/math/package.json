@@ -1,0 +1,10 @@
+{
+  "name": "crack-math-module",
+  "version": "1.0.0",
+  "description": "Математический модуль для языка программирования Crack",
+  "main": "src/index.js",
+  "keywords": ["crack", "math", "module"],
+  "author": "derxanax",
+  "license": "MIT",
+  "dependencies": {}
+} 

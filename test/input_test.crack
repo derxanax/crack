@@ -1,0 +1,70 @@
+image.pngimage.pngconlog "=== ТЕСТ МОДУЛЯ INPUT ==="
+
+imp input
+
+conlog "🔧 Модуль input загружен!"
+conlog ""
+
+conlog "📝 Тест 1: Валидация email"
+email1 = "test@example.com"
+email2 = "invalid-email"
+isValid1 = input.validateEmail(email1)
+isValid2 = input.validateEmail(email2)
+conlog "Email:"
+conlog (email1)
+conlog "Валидный:"
+conlog (isValid1)
+conlog "Email:"
+conlog (email2)
+conlog "Валидный:"
+conlog (isValid2)
+conlog ""
+
+conlog "🧹 Тест 2: Очистка ввода"
+dirtyInput = "<script>alert('hack')</script>Hello"
+cleanInput = input.sanitizeInput(dirtyInput)
+conlog "Грязный ввод:"
+conlog (dirtyInput)
+conlog "Очищенный ввод:"
+conlog (cleanInput)
+conlog ""
+
+conlog "🔢 Тест 3: Демо ввода числа"
+conlog "Введите число (или нажмите Enter для пропуска):"
+number = input.readNumber("Ваше число: ")
+conlog "Вы ввели число:"
+conlog (number)
+conlog ""
+
+conlog "✏️ Тест 4: Демо ввода строки"
+userName = input.readLine("Введите ваше имя: ")
+conlog "Привет,"
+conlog (userName)
+conlog ""
+
+conlog "❓ Тест 5: Демо подтверждения"
+confirmation = input.confirm("Хотите продолжить тестирование?")
+if (confirmation == true):
+  conlog "✅ Вы выбрали: ДА"
+else:
+  conlog "❌ Вы выбрали: НЕТ"
+conlog ""
+
+conlog "📋 Тест 6: Демо выбора"
+options = "Красный,Синий,Зеленый"
+choice = input.choice("Выберите цвет:", options)
+conlog "Вы выбрали цвет:"
+conlog (choice)
+conlog ""
+
+conlog "🔐 Тест 7: Демо ввода пароля"
+password = input.readPassword("Введите пароль: ")
+passwordLength = 0
+if (password != ""):
+  passwordLength = 8
+conlog "Длина пароля (примерная):"
+conlog (passwordLength)
+conlog ""
+
+conlog "🎉 ВСЕ ТЕСТЫ МОДУЛЯ INPUT ЗАВЕРШЕНЫ!"
+conlog "✨ Модуль готов к использованию!" 
