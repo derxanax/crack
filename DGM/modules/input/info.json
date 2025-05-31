@@ -1,0 +1,50 @@
+{
+  "name": "input",
+  "version": "1.0.0",
+  "description": "Модуль для обработки пользовательского ввода в языке Crack",
+  "author": "derxanax",
+  "functions": [
+    {
+      "name": "readLine",
+      "description": "Считывает строку с консоли",
+      "parameters": ["prompt"],
+      "returns": "Введенная пользователем строка"
+    },
+    {
+      "name": "readNumber",
+      "description": "Считывает число с консоли с валидацией",
+      "parameters": ["prompt"],
+      "returns": "Введенное пользователем число"
+    },
+    {
+      "name": "readPassword",
+      "description": "Считывает пароль с консоли (скрывает символы)",
+      "parameters": ["prompt"],
+      "returns": "Введенный пользователем пароль"
+    },
+    {
+      "name": "confirm",
+      "description": "Запрашивает подтверждение (да/нет)",
+      "parameters": ["message"],
+      "returns": "true если да, false если нет"
+    },
+    {
+      "name": "choice",
+      "description": "Предлагает выбор из списка вариантов",
+      "parameters": ["message", "options"],
+      "returns": "Выбранный пользователем вариант"
+    },
+    {
+      "name": "validateEmail",
+      "description": "Проверяет корректность email адреса",
+      "parameters": ["email"],
+      "returns": "true если email корректный, false иначе"
+    },
+    {
+      "name": "sanitizeInput",
+      "description": "Очищает ввод от опасных символов",
+      "parameters": ["input"],
+      "returns": "Очищенная строка"
+    }
+  ]
+} 

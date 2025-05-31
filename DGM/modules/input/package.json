@@ -1,0 +1,12 @@
+{
+  "name": "crack-input-module",
+  "version": "1.0.0",
+  "description": "Модуль обработки пользовательского ввода для языка программирования Crack",
+  "main": "src/index.js",
+  "keywords": ["crack", "input", "console", "readline", "module"],
+  "author": "derxanax",
+  "license": "MIT",
+  "dependencies": {
+    "readline-sync": "^1.4.10"
+  }
+} 
