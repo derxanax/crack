@@ -51,6 +51,7 @@ var TokenType;
     TokenType["BRACE"] = "BRACE";
     TokenType["COMPARISON"] = "COMPARISON";
     TokenType["LOGICAL"] = "LOGICAL";
+    TokenType["DOT"] = "DOT";
     TokenType["INDENT"] = "INDENT";
     TokenType["DEDENT"] = "DEDENT";
     TokenType["NEWLINE"] = "NEWLINE";
@@ -307,7 +308,7 @@ class ErrorHandler {
     }
 }
 const KEYWORDS = ['conlog', 'imp', 'codego', 'if', 'else', 'while', 'for'];
-const OPERATORS = ['+', '-', '*', '/', '=', '.', '?', '#'];
+const OPERATORS = ['+', '-', '*', '/', '=', '?', '#'];
 const COMPARISON_OPERATORS = ['==', '!=', '>=', '<=', '>', '<'];
 const LOGICAL_OPERATORS = ['&&', '||', '!'];
 class CrackInterpreter {
@@ -433,6 +434,11 @@ class CrackInterpreter {
                     current++;
                     continue;
                 }
+                if (char === '.') {
+                    tokens.push({ type: TokenType.DOT, value: char, line: lineNumber });
+                    current++;
+                    continue;
+                }
                 if (OPERATORS.includes(char)) {
                     tokens.push({ type: TokenType.OPERATOR, value: char, line: lineNumber });
                     current++;
@@ -550,6 +556,48 @@ class CrackInterpreter {
                         });
                         current++;
                     }
+                    else if (valueToken.type === TokenType.IDENTIFIER && tokens[current + 1] && tokens[current + 1].type === TokenType.DOT) {
+                        // Присваивание результата вызова функции модуля: var = module.function()
+                        const moduleToken = valueToken;
+                        current += 2; // пропускаем модуль и точку
+                        const functionToken = tokens[current];
+                        if (functionToken && functionToken.type === TokenType.IDENTIFIER) {
+                            current++;
+                            const openParenToken = tokens[current];
+                            if (openParenToken && openParenToken.value === '(') {
+                                current++;
+                                // Собираем аргументы функции
+                                const args = [];
+                                while (current < tokens.length && tokens[current].value !== ')') {
+                                    const argToken = tokens[current];
+                                    if (argToken.type === TokenType.STRING) {
+                                        args.push({ type: 'String', value: argToken.value });
+                                    }
+                                    else if (argToken.type === TokenType.NUMBER) {
+                                        args.push({ type: 'Number', value: parseInt(argToken.value) });
+                                    }
+                                    else if (argToken.type === TokenType.IDENTIFIER) {
+                                        args.push({ type: 'Variable', name: argToken.value });
+                                    }
+                                    current++;
+                                }
+                                if (tokens[current] && tokens[current].value === ')') {
+                                    current++;
+                                    // Создаем узел для отложенного вызова функции модуля
+                                    ast.push({
+                                        type: 'VariableAssignment',
+                                        name: token.value,
+                                        value: {
+                                            type: 'ModuleCall',
+                                            module: moduleToken.value,
+                                            function: functionToken.value,
+                                            args: args
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
                     else {
                         let expression = '';
                         while (current < tokens.length && tokens[current].type !== TokenType.EOF) {
@@ -563,6 +611,42 @@ class CrackInterpreter {
                             name: token.value,
                             value: { type: 'Expression', expression: expression.trim() }
                         });
+                    }
+                }
+                else if (nextToken && nextToken.type === TokenType.DOT) {
+                    // Вызов функции модуля: module.function()
+                    current += 2; // пропускаем модуль и точку
+                    const functionToken = tokens[current];
+                    if (functionToken && functionToken.type === TokenType.IDENTIFIER) {
+                        current++;
+                        const openParenToken = tokens[current];
+                        if (openParenToken && openParenToken.value === '(') {
+                            current++;
+                            // Собираем аргументы функции
+                            const args = [];
+                            while (current < tokens.length && tokens[current].value !== ')') {
+                                const argToken = tokens[current];
+                                if (argToken.type === TokenType.STRING) {
+                                    args.push({ type: 'String', value: argToken.value });
+                                }
+                                else if (argToken.type === TokenType.NUMBER) {
+                                    args.push({ type: 'Number', value: parseInt(argToken.value) });
+                                }
+                                else if (argToken.type === TokenType.IDENTIFIER) {
+                                    args.push({ type: 'Variable', name: argToken.value });
+                                }
+                                current++;
+                            }
+                            if (tokens[current] && tokens[current].value === ')') {
+                                current++;
+                                ast.push({
+                                    type: 'ModuleFunctionCall',
+                                    module: token.value,
+                                    function: functionToken.value,
+                                    args: args
+                                });
+                            }
+                        }
                     }
                 }
                 else {
@@ -1043,6 +1127,34 @@ class CrackInterpreter {
                         const result = this.evaluateExpression(node.value.expression);
                         this.variables.set(node.name, result);
                     }
+                    else if (node.value.type === 'ModuleCall') {
+                        // Выполняем вызов функции модуля и сохраняем результат
+                        const moduleObj = this.modules.get(node.value.module);
+                        if (moduleObj && typeof moduleObj[node.value.function] === 'function') {
+                            const processedArgs = node.value.args.map((arg) => {
+                                if (arg.type === 'String')
+                                    return arg.value;
+                                if (arg.type === 'Number')
+                                    return arg.value;
+                                if (arg.type === 'Variable')
+                                    return this.variables.get(arg.name);
+                                return arg.value;
+                            });
+                            try {
+                                const result = moduleObj[node.value.function](...processedArgs);
+                                this.variables.set(node.name, result);
+                                console.log(`🔧 ${node.value.module}.${node.value.function}() = ${result}`);
+                            }
+                            catch (error) {
+                                console.log(`❌ Ошибка вызова ${node.value.module}.${node.value.function}:`, error);
+                                this.variables.set(node.name, 0);
+                            }
+                        }
+                        else {
+                            console.log(`❌ Функция ${node.value.function} не найдена в модуле ${node.value.module}`);
+                            this.variables.set(node.name, 0);
+                        }
+                    }
                     break;
                 case 'CodeExecution':
                     const code = this.variables.get(node.variable);
@@ -1054,6 +1166,31 @@ class CrackInterpreter {
                     break;
                 case 'ModuleImport':
                     this.loadModule(node.module);
+                    break;
+                case 'ModuleFunctionCall':
+                    const moduleObj = this.modules.get(node.module);
+                    if (moduleObj && typeof moduleObj[node.function] === 'function') {
+                        const args = node.args.map((arg) => {
+                            if (arg.type === 'String')
+                                return arg.value;
+                            if (arg.type === 'Number')
+                                return arg.value;
+                            if (arg.type === 'Variable')
+                                return this.variables.get(arg.name);
+                            return arg.value;
+                        });
+                        try {
+                            const result = moduleObj[node.function](...args);
+                            // Сохраняем результат как временную переменную
+                            this.variables.set(`__temp_${node.module}_${node.function}`, result);
+                        }
+                        catch (error) {
+                            console.log(`❌ Ошибка вызова ${node.module}.${node.function}:`, error);
+                        }
+                    }
+                    else {
+                        console.log(`❌ Функция ${node.function} не найдена в модуле ${node.module}`);
+                    }
                     break;
                 case 'IfStatement':
                     const conditionResult = this.evaluateCondition(node.condition);
@@ -1120,18 +1257,31 @@ class CrackInterpreter {
     }
     loadModule(moduleName) {
         try {
-            const modulePath = path.join(process.cwd(), 'crack_modules', moduleName, 'src', 'index.js');
-            if (fs.existsSync(modulePath)) {
-                const moduleExports = require(modulePath);
-                this.modules.set(moduleName, moduleExports);
-                console.log(`✅ Модуль ${moduleName} загружен`);
+            // Проверяем несколько возможных путей
+            const possiblePaths = [
+                path.join(process.cwd(), 'crack_modules', moduleName, 'src', 'index.js'),
+                path.join(process.cwd(), 'test', 'crack_modules', moduleName, 'src', 'index.js'),
+                path.join(process.cwd(), '..', 'test', 'crack_modules', moduleName, 'src', 'index.js'),
+                path.join(__dirname, '..', 'test', 'crack_modules', moduleName, 'src', 'index.js'),
+                path.join(__dirname, '..', '..', 'test', 'crack_modules', moduleName, 'src', 'index.js')
+            ];
+            let moduleLoaded = false;
+            for (const modulePath of possiblePaths) {
+                if (fs.existsSync(modulePath)) {
+                    const moduleExports = require(modulePath);
+                    this.modules.set(moduleName, moduleExports);
+                    console.log(`✅ Модуль ${moduleName} загружен из ${modulePath}`);
+                    moduleLoaded = true;
+                    break;
+                }
             }
-            else {
-                console.log(`❌ Модуль ${moduleName} не найден`);
+            if (!moduleLoaded) {
+                console.log(`❌ Модуль ${moduleName} не найден по путям:`);
+                possiblePaths.forEach(p => console.log(`  - ${p}`));
             }
         }
         catch (error) {
-            console.log(`❌ Ошибка загрузки модуля ${moduleName}`);
+            console.log(`❌ Ошибка загрузки модуля ${moduleName}:`, error);
         }
     }
     async run(filename) {

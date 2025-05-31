@@ -1,0 +1,30 @@
+{
+  "name": "crack-language",
+  "version": "1.0.0",
+  "description": "Crack Programming Language Interpreter",
+  "main": "dist/main.js",
+  "bin": {
+    "crack": "./dist/main.js",
+    "crapm": "./dist/crapm.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "crapm": "node dist/crapm.js"
+  },
+  "keywords": [
+    "crack",
+    "programming",
+    "language",
+    "interpreter"
+  ],
+  "author": "derxanax",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "readline-sync": "^1.4.10"
+  }
+}

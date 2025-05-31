@@ -9,6 +9,7 @@ declare enum TokenType {
     BRACE = "BRACE",
     COMPARISON = "COMPARISON",
     LOGICAL = "LOGICAL",
+    DOT = "DOT",
     INDENT = "INDENT",
     DEDENT = "DEDENT",
     NEWLINE = "NEWLINE",

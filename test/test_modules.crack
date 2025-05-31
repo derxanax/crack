@@ -1,0 +1,15 @@
+conlog "=== ТЕСТ МОДУЛЯ INPUT ==="
+
+imp input
+
+conlog "Модуль input загружен"
+
+email = "test@example.com"
+result = input.validateEmail(email)
+
+conlog "Email:"
+conlog (email)
+conlog "Результат:"
+conlog (result)
+
+conlog "=== ТЕСТ ЗАВЕРШЕН ==="
