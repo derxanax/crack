@@ -10,3 +10,4 @@ crack_modules/
 *.swo
 .nyc_output/
 coverage/ 
+dist
