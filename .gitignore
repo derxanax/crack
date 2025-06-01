@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.log
+.env
+crack_modules/
+.vscode/
+*.tsbuildinfo
+.DS_Store
+*.swp
+*.swo
+.nyc_output/
+coverage/ 
