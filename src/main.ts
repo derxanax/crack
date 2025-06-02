@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
 import * as readline from 'readline';
+import { execSync } from 'child_process';
 
 enum TokenType {
   IDENTIFIER = 'IDENTIFIER',
@@ -1536,17 +1537,131 @@ class CrackInterpreter {
   }
 }
 
+// 🔄 ФУНКЦИЯ АВТООБНОВЛЕНИЯ
+async function updateCrack(): Promise<void> {
+  // Цветовая палитра (как в start.sh)
+  const colors = {
+    RED: '\x1b[0;31m',
+    GREEN: '\x1b[0;32m',
+    BLUE: '\x1b[0;34m',
+    PURPLE: '\x1b[0;35m',
+    CYAN: '\x1b[0;36m',
+    YELLOW: '\x1b[1;33m',
+    BOLD: '\x1b[1m',
+    DIM: '\x1b[2m',
+    RESET: '\x1b[0m'
+  };
+
+  const tempDir = '.crtmp';
+  const repoUrl = 'https://github.com/derxanax/crack.git';
+
+  console.log('\n🔄 АВТООБНОВЛЕНИЕ CRACK\n');
+  console.log(`${colors.CYAN}╔══════════════════════════════════════════╗${colors.RESET}`);
+  console.log(`${colors.CYAN}║${colors.RESET}    🚀 ${colors.YELLOW}ОБНОВЛЕНИЕ С GITHUB${colors.RESET} 🚀    ${colors.CYAN}║${colors.RESET}`);
+  console.log(`${colors.CYAN}╚══════════════════════════════════════════╝${colors.RESET}\n`);
+
+  try {
+    // 1. Проверка git
+    console.log(`${colors.BLUE}🔍 ЭТАП 1/5: Проверка git${colors.RESET}`);
+    try {
+      execSync('git --version', { stdio: 'pipe' });
+      console.log(`${colors.GREEN}✅ Git найден${colors.RESET}\n`);
+    } catch {
+      console.log(`${colors.RED}❌ Git не найден! Установите git${colors.RESET}`);
+      return;
+    }
+
+    // 2. Создание временной папки
+    console.log(`${colors.BLUE}📁 ЭТАП 2/5: Создание временной папки${colors.RESET}`);
+    if (fs.existsSync(tempDir)) {
+      console.log(`${colors.YELLOW}⚠️  Удаляю существующую папку ${tempDir}${colors.RESET}`);
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(tempDir);
+    console.log(`${colors.GREEN}✅ Папка ${tempDir} создана${colors.RESET}\n`);
+
+    // 3. Клонирование репозитория
+    console.log(`${colors.BLUE}📦 ЭТАП 3/5: Скачивание с GitHub${colors.RESET}`);
+    console.log(`${colors.DIM}Клонирую ${repoUrl}...${colors.RESET}`);
+    
+    try {
+      execSync(`git clone ${repoUrl} ${tempDir}`, { stdio: 'pipe' });
+      console.log(`${colors.GREEN}✅ Репозиторий скачан${colors.RESET}\n`);
+    } catch (error) {
+      console.log(`${colors.RED}❌ Ошибка клонирования: ${error}${colors.RESET}`);
+      return;
+    }
+
+    // 4. Запуск установки
+    console.log(`${colors.BLUE}⚡ ЭТАП 4/5: Запуск установки${colors.RESET}`);
+    console.log(`${colors.PURPLE}╔════════════════════════════════╗${colors.RESET}`);
+    console.log(`${colors.PURPLE}║  ${colors.YELLOW}Запускаю start.sh${colors.RESET}         ${colors.PURPLE}║${colors.RESET}`);
+    console.log(`${colors.PURPLE}╚════════════════════════════════╝${colors.RESET}`);
+
+    try {
+      // Переходим в папку и запускаем start.sh
+      const installScript = path.join(tempDir, 'start.sh');
+      
+      if (fs.existsSync(installScript)) {
+        // Делаем скрипт исполняемым
+        execSync(`chmod +x ${installScript}`);
+        
+        // Запускаем установку из временной папки
+        execSync(`cd ${tempDir} && ./start.sh`, { stdio: 'inherit' });
+        console.log(`${colors.GREEN}✅ Установка завершена${colors.RESET}\n`);
+      } else {
+        console.log(`${colors.RED}❌ start.sh не найден в репозитории${colors.RESET}`);
+        return;
+      }
+    } catch (error) {
+      console.log(`${colors.RED}❌ Ошибка установки: ${error}${colors.RESET}`);
+      return;
+    }
+
+    // 5. Очистка
+    console.log(`${colors.BLUE}🗑️  ЭТАП 5/5: Очистка${colors.RESET}`);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    console.log(`${colors.GREEN}✅ Временные файлы удалены${colors.RESET}\n`);
+
+    // Финальное сообщение
+    console.log(`${colors.BOLD}${colors.GREEN}🎉 ОБНОВЛЕНИЕ ЗАВЕРШЕНО УСПЕШНО! 🎉${colors.RESET}`);
+    console.log(`${colors.CYAN}╔══════════════════════════════════════════╗${colors.RESET}`);
+    console.log(`${colors.CYAN}║${colors.RESET}           🌟 ${colors.GREEN}CRACK ОБНОВЛЕН!${colors.RESET} 🌟         ${colors.CYAN}║${colors.RESET}`);
+    console.log(`${colors.CYAN}╚══════════════════════════════════════════╝${colors.RESET}\n`);
+
+  } catch (error) {
+    console.log(`${colors.RED}💥 КРИТИЧЕСКАЯ ОШИБКА ОБНОВЛЕНИЯ:${colors.RESET}`);
+    console.error(error);
+    
+    // Очистка при ошибке
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      console.log(`${colors.YELLOW}🧹 Временные файлы очищены${colors.RESET}`);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const interpreter = new CrackInterpreter();
   
   if (process.argv.length < 3) {
     interpreter.showLogo();
-    console.log('Использование: crack <file.crack>');
+    console.log('Использование:');
+    console.log('  crack <file.crack>  - запустить программу');
+    console.log('  crack --upd         - обновить Crack с GitHub');
     return;
   }
 
-  const filename = process.argv[2];
-  await interpreter.run(filename);
+  const argument = process.argv[2];
+  
+  // Обработка команды обновления
+  if (argument === '--upd') {
+    await updateCrack();
+    return;
+  }
+
+  // Обычное выполнение файла
+  await interpreter.run(argument);
 }
 
 if (require.main === module) {
