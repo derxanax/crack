@@ -1,12 +1,35 @@
 node_modules/
 dist/
 *.log
+
+# RPM Building
+*.tar.gz
+*.rpm
+*.src.rpm
+~/rpmbuild/
+rpmbuild/
+BUILD/
+BUILDROOT/
+RPMS/
+SOURCES/
+SPECS/
+SRPMS/
+.rpmmacros
+RELEASE-NOTES.md
+
+# RPM temporary files
+rpm-tmp.*
+*.spec.bak
 .env
 crack_modules/
 .vscode/
-*.tsbuildinfo
+*.tsbuildinfoз
 .DS_Store
 *.swp
 *.swo
 .nyc_output/
 coverage/ 
+crack-language.spec
+RPM-BUILD.md
+rpmbuild-helper.sh 
+Makefile
