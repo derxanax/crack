@@ -1,8 +1,0 @@
-conlog "=== ТЕСТ ВВОДА ==="
-
-imp input
-
-conlog "Введите ваше имя:"
-name = input.readLine("Имя: ")
-conlog "Привет"
-conlog (name)
