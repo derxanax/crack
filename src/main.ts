@@ -1606,8 +1606,11 @@ async function updateCrack(): Promise<void> {
         // Делаем скрипт исполняемым
         execSync(`chmod +x ${installScript}`);
         
-        // Запускаем установку из временной папки
-        execSync(`cd ${tempDir} && ./start.sh`, { stdio: 'inherit' });
+        // Запускаем установку из временной папки с правильной рабочей директорией
+        execSync(`./start.sh --force`, { 
+          stdio: 'inherit',
+          cwd: tempDir  // Устанавливаем рабочую директорию в tempDir
+        });
         console.log(`${colors.GREEN}✅ Установка завершена${colors.RESET}\n`);
       } else {
         console.log(`${colors.RED}❌ start.sh не найден в репозитории${colors.RESET}`);

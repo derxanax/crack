@@ -175,15 +175,15 @@ main_install() {
     
     npm run build &> /tmp/tsc_build.log &
     spinner $! "Компилирую код для производительности"
-    
-    if [ $? -eq 0 ]; then
+
+if [ $? -eq 0 ]; then
         echo -e "${GREEN}✨ Компиляция успешна!${RESET}\n"
     else
         echo -e "${RED}💥 Ошибка компиляции!${RESET}"
         cat /tmp/tsc_build.log
-        exit 1
-    fi
-    
+    exit 1
+fi
+
     # ЭТАП 3: Глобальная установка
     echo -e "${BOLD}${CYAN}🌍 ЭТАП 3/4: Глобальная установка${RESET}"
     sudo npm install -g . --force &> /tmp/global_install.log &
@@ -191,9 +191,9 @@ main_install() {
     
     # ЭТАП 4: Права доступа
     echo -e "${BOLD}${CYAN}🔐 ЭТАП 4/4: Настройка прав${RESET}"
-    sudo chmod +x /usr/local/lib/node_modules/crack/dist/main.js
-    sudo chmod +x /usr/local/lib/node_modules/crack/dist/crapm.js
-    
+sudo chmod +x /usr/local/lib/node_modules/crack/dist/main.js
+sudo chmod +x /usr/local/lib/node_modules/crack/dist/crapm.js
+
     # Финальный прогресс-бар
     echo -e "\n${BOLD}${GREEN}🎯 ФИНАЛИЗАЦИЯ:${RESET}"
     for i in {1..30}; do
@@ -257,7 +257,7 @@ success_animation() {
     # Отображение drel2.txt если есть
     if [ -f "drel2.txt" ]; then
         echo -e "${DIM}"
-        cat drel2.txt
+cat drel2.txt 
         echo -e "${RESET}"
     fi
 }
