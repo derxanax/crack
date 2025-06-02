@@ -42,8 +42,11 @@ class CrapmManager {
       
       console.log(`✅ Модуль ${moduleName} успешно скачан!`);
       
-      // Автоматическая установка зависимостей
-      await this.installDependencies(moduleDir, moduleName);
+      // Автоматическая установка npm зависимостей
+      await this.installNpmDependencies(moduleDir, moduleName);
+      
+      // Проверяем зависимости от других Crack модулей
+      await this.installCrackDependencies(moduleName);
       
       console.log(`📝 Используйте: imp ${moduleName}`);
     } catch (error: any) {
@@ -91,7 +94,7 @@ class CrapmManager {
     }
   }
 
-  private async installDependencies(moduleDir: string, moduleName: string): Promise<void> {
+  private async installNpmDependencies(moduleDir: string, moduleName: string): Promise<void> {
     try {
       const packageJsonPath = path.join(moduleDir, 'package.json');
       
@@ -103,11 +106,11 @@ class CrapmManager {
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
       
       if (!packageJson.dependencies || Object.keys(packageJson.dependencies).length === 0) {
-        console.log(`📦 Модуль ${moduleName} не требует дополнительных зависимостей`);
+        console.log(`📦 Модуль ${moduleName} не требует npm зависимостей`);
         return;
       }
 
-      console.log(`🔧 Устанавливаю зависимости для модуля ${moduleName}...`);
+      console.log(`🔧 Устанавливаю npm зависимости для модуля ${moduleName}...`);
       console.log(`📋 Зависимости: ${Object.keys(packageJson.dependencies).join(', ')}`);
 
       const { stdout, stderr } = await execAsync('npm install', { cwd: moduleDir });
@@ -116,33 +119,52 @@ class CrapmManager {
         console.log(`⚠️ Предупреждения при установке зависимостей:\n${stderr}`);
       }
       
-      console.log(`✅ Зависимости для модуля ${moduleName} успешно установлены!`);
+      console.log(`✅ npm зависимости для модуля ${moduleName} успешно установлены!`);
       
     } catch (error: any) {
-      console.log(`❌ Ошибка установки зависимостей для модуля ${moduleName}:`);
+      console.log(`❌ Ошибка установки npm зависимостей для модуля ${moduleName}:`);
       console.log(`💡 ${error.message}`);
       console.log(`🔧 Попробуйте установить зависимости вручную: cd crack_modules/${moduleName} && npm install`);
     }
   }
 
-  async installAll(): Promise<void> {
-    console.log(`
-🚀 CRAPM - Автоустановка всех популярных модулей 🚀
-  ➤ Устанавливаем основные модули для детей...
-`);
+  private async installCrackDependencies(moduleName: string): Promise<void> {
+    try {
+      const infoJsonPath = path.join(process.cwd(), 'crack_modules', moduleName, 'info.json');
+      
+      if (!fs.existsSync(infoJsonPath)) {
+        return;
+      }
 
-    const popularModules = ['input', 'math'];
-    
-    for (const module of popularModules) {
-      console.log(`\n🔄 Устанавливаю модуль: ${module}`);
-      await this.install(module);
+      const infoJson = JSON.parse(fs.readFileSync(infoJsonPath, 'utf-8'));
+      
+      // Проверяем если есть поле dependencies в info.json
+      if (!infoJson.dependencies || infoJson.dependencies.length === 0) {
+        console.log(`🔗 Модуль ${moduleName} не требует других Crack модулей`);
+        return;
+      }
+
+      console.log(`🔗 Устанавливаю зависимые Crack модули для ${moduleName}...`);
+      console.log(`📋 Требуемые модули: ${infoJson.dependencies.join(', ')}`);
+
+      for (const dependency of infoJson.dependencies) {
+        const dependencyDir = path.join(process.cwd(), 'crack_modules', dependency);
+        
+        if (fs.existsSync(dependencyDir)) {
+          console.log(`✅ Модуль ${dependency} уже установлен`);
+          continue;
+        }
+        
+        console.log(`📥 Устанавливаю зависимость: ${dependency}`);
+        await this.install(dependency);
+      }
+      
+      console.log(`✅ Все зависимости для модуля ${moduleName} установлены!`);
+      
+    } catch (error: any) {
+      console.log(`❌ Ошибка установки Crack зависимостей для модуля ${moduleName}:`);
+      console.log(`💡 ${error.message}`);
     }
-    
-    console.log(`
-🎉 Автоустановка завершена! 🎉
-📚 Установлены модули: ${popularModules.join(', ')}
-💡 Начинайте программировать: imp input, imp math
-`);
   }
 
   async listAvailable(): Promise<void> {
@@ -166,7 +188,7 @@ class CrapmManager {
     console.log(`
 💡 Установка: crapm install <module_name>
 🔍 Пример: crapm install input
-🚀 Автоустановка: crapm install-all
+🚀 Все зависимости устанавливаются автоматически!
 `);
   }
 
@@ -188,7 +210,6 @@ class CrapmManager {
     if (!fs.existsSync(modulesDir)) {
       console.log('📦 Установленных модулей нет');
       console.log('💡 Установите модуль: crapm install <module_name>');
-      console.log('🚀 Или установите все сразу: crapm install-all');
       return;
     }
 
@@ -197,7 +218,6 @@ class CrapmManager {
     if (modules.length === 0) {
       console.log('📦 Установленных модулей нет');
       console.log('💡 Установите модуль: crapm install <module_name>');
-      console.log('🚀 Или установите все сразу: crapm install-all');
     } else {
       console.log('📦 Установленные модули:');
       modules.forEach(module => {
@@ -263,14 +283,13 @@ function main(): void {
     crapm.showLogo();
     console.log(`
 Команды:
-  install <module>     - Установить модуль с автозависимостями
-  install-all          - Установить все популярные модули
+  install <module>     - Установить модуль со всеми зависимостями
   uninstall <module>   - Удалить модуль  
   list                 - Список установленных модулей
   list-available       - Список доступных модулей
 
 Пример: crapm install input
-🚀 Быстрый старт: crapm install-all
+🚀 Все зависимости устанавливаются автоматически!
 `);
     return;
   }
@@ -283,14 +302,9 @@ function main(): void {
       if (!moduleName) {
         console.log('❌ Укажите имя модуля для установки');
         console.log('💡 Пример: crapm install input');
-        console.log('🚀 Или установите все: crapm install-all');
         return;
       }
       crapm.install(moduleName);
-      break;
-
-    case 'install-all':
-      crapm.installAll();
       break;
 
     case 'uninstall':
@@ -311,7 +325,7 @@ function main(): void {
       break;
 
     default:
-      console.log('❌ Неизвестная команда. Используйте: install, install-all, uninstall, list, list-available');
+      console.log('❌ Неизвестная команда. Используйте: install, uninstall, list, list-available');
   }
 }
 
