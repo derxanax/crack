@@ -1,0 +1,14 @@
+{
+  "modules": [
+    {
+      "name": "input",
+      "path": "/modules/input",
+      "description": "Работа с пользовательским вводом"
+    },
+    {
+      "name": "math",
+      "path": "/modules/math", 
+      "description": "Математические функции"
+    }
+  ]
+} 

@@ -235,18 +235,39 @@ class CrapmManager {
     console.log(`${colors.CYAN}║${colors.RESET}       📋 ${colors.YELLOW}ДОСТУПНЫЕ МОДУЛИ${colors.RESET} 📋        ${colors.CYAN}║${colors.RESET}`);
     console.log(`${colors.CYAN}╚══════════════════════════════════════════╝${colors.RESET}\n`);
 
-    const availableModules = [
-      { name: 'input', description: 'Работа с пользовательским вводом' },
-      { name: 'math', description: 'Математические функции' },
-      { name: 'string', description: 'Работа со строками' },
-      { name: 'file', description: 'Работа с файлами' },
-      { name: 'http', description: 'HTTP запросы и сервер' },
-      { name: 'crypto', description: 'Криптографические функции' }
-    ];
-
-    availableModules.forEach(module => {
-      console.log(`  ${colors.GREEN}📋 ${colors.BOLD}${module.name.padEnd(10)}${colors.RESET} ${colors.DIM}- ${module.description}${colors.RESET}`);
-    });
+    try {
+      // Читаем список модулей из файла
+      const listModPath = path.join(__dirname, '..', 'modules', 'listmod.json');
+      
+      if (!fs.existsSync(listModPath)) {
+        console.log(`${colors.RED}❌ Файл listmod.json не найден${colors.RESET}`);
+        console.log(`${colors.YELLOW}💡 Используется резервный список модулей${colors.RESET}\n`);
+        
+        // Резервный список если файл не найден
+        const fallbackModules = [
+          { name: 'input', description: 'Работа с пользовательским вводом' },
+          { name: 'math', description: 'Математические функции' }
+        ];
+        
+        fallbackModules.forEach(module => {
+          console.log(`  ${colors.GREEN}📋 ${colors.BOLD}${module.name.padEnd(10)}${colors.RESET} ${colors.DIM}- ${module.description}${colors.RESET}`);
+        });
+      } else {
+        const modulesList = JSON.parse(fs.readFileSync(listModPath, 'utf-8'));
+        
+        if (!modulesList.modules || !Array.isArray(modulesList.modules)) {
+          throw new Error('Неверный формат listmod.json');
+        }
+        
+        modulesList.modules.forEach((module: any) => {
+          console.log(`  ${colors.GREEN}📋 ${colors.BOLD}${module.name.padEnd(10)}${colors.RESET} ${colors.DIM}- ${module.description}${colors.RESET}`);
+        });
+      }
+    } catch (error: any) {
+      console.log(`${colors.RED}❌ Ошибка чтения списка модулей: ${error.message}${colors.RESET}`);
+      console.log(`${colors.YELLOW}💡 Проверьте файл modules/listmod.json${colors.RESET}\n`);
+      return;
+    }
 
     console.log(`\n${colors.CYAN}╔══════════════════════════════════════════╗${colors.RESET}`);
     console.log(`${colors.CYAN}║${colors.RESET} ${colors.YELLOW}💡 Установка:${colors.RESET} crapm install <module>  ${colors.CYAN}║${colors.RESET}`);
