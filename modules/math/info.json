@@ -39,6 +39,12 @@
       "description": "Квадратный корень",
       "parameters": ["number"],
       "returns": "Квадратный корень числа"
+    },
+    {
+      "name": "random",
+      "description": "Случайное число в диапазоне",
+      "parameters": ["min", "max"],
+      "returns": "Случайное целое число от min до max включительно"
     }
   ]
 } 

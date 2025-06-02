@@ -46,11 +46,22 @@ function sqrt(number) {
   return Math.sqrt(number);
 }
 
+function random(min, max) {
+  if (typeof min !== 'number' || typeof max !== 'number') {
+    throw new Error('Аргументы должны быть числами');
+  }
+  if (min > max) {
+    throw new Error('Минимальное значение не может быть больше максимального');
+  }
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 module.exports = {
   add,
   subtract,
   multiply,
   divide,
   power,
-  sqrt
+  sqrt,
+  random
 }; 
