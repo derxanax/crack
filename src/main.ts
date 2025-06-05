@@ -39,13 +39,8 @@ interface ASTNode {
 
 class ErrorHandler {
   static showCriticalError(message: string, line: number, suggestion: string): void {
-    console.log(`
-🚨 КРИТИЧЕСКАЯ ОШИБКА (строка ${line}) 🚨
-╔════════════════════════════════════╗
-║ ${message.padEnd(34)} ║
-╚════════════════════════════════════╝
-💡 СОВЕТ: ${suggestion}
-`);
+    console.log(`🚨 Ошибка (строка ${line}): ${message}`);
+    console.log(`💡 ${suggestion}`);
     process.exit(1);
   }
 
@@ -59,7 +54,7 @@ class ErrorHandler {
 }
 
 const KEYWORDS = ['conlog', 'imp', 'codego', 'if', 'else', 'while', 'for'];
-const OPERATORS = ['+', '-', '*', '/', '=', '?', '#'];
+const OPERATORS = ['+', '-', '*', '/', '=', '?', '#', ';'];
 const COMPARISON_OPERATORS = ['==', '!=', '>=', '<=', '>', '<'];
 const LOGICAL_OPERATORS = ['&&', '||', '!'];
 
@@ -90,7 +85,11 @@ class CrackInterpreter {
       const line = lines[lineIndex];
       lineNumber = lineIndex + 1;
       
-      if (line.trim() === '') continue;
+      if (line.trim() === '') {
+        // Добавляем NEWLINE токен для пустых строк
+        tokens.push({ type: TokenType.NEWLINE, value: '', line: lineNumber });
+        continue;
+      }
       
       let indentLevel = 0;
       for (let i = 0; i < line.length; i++) {
@@ -192,11 +191,7 @@ class CrackInterpreter {
         continue;
       }
 
-      if (char === ':') {
-        tokens.push({ type: TokenType.OPERATOR, value: char, line: lineNumber });
-        current++;
-        continue;
-      }
+
 
       if (char === '.') {
         tokens.push({ type: TokenType.DOT, value: char, line: lineNumber });
@@ -235,6 +230,12 @@ class CrackInterpreter {
       }
 
       ErrorHandler.throwError(`Неизвестный символ '${char}'`, lineNumber);
+      }
+
+      // Добавляем NEWLINE токен в конце каждой обработанной строки
+      // Но не добавляем NEWLINE если это последняя строка
+      if (lineIndex < lines.length - 1) {
+        tokens.push({ type: TokenType.NEWLINE, value: '', line: lineNumber });
       }
     }
 
@@ -308,6 +309,16 @@ class CrackInterpreter {
               value: { type: 'String', value: valueToken.value }
             });
             current++;
+          } else if (valueToken.type === TokenType.NUMBER && (current + 1 >= tokens.length || 
+                     tokens[current + 1].type === TokenType.NEWLINE || 
+                     tokens[current + 1].type === TokenType.EOF ||
+                     tokens[current + 1].type === TokenType.KEYWORD)) {
+            ast.push({
+              type: 'VariableAssignment',
+              name: token.value,
+              value: { type: 'Number', value: parseInt(valueToken.value) }
+            });
+            current++;
                       } else if (valueToken.type === TokenType.IDENTIFIER && tokens[current + 1] && tokens[current + 1].type === TokenType.DOT) {
               // Присваивание результата вызова функции модуля: var = module.function()
               const moduleToken = valueToken;
@@ -353,17 +364,18 @@ class CrackInterpreter {
                 }
               }
             } else {
-              // Все остальные случаи - собираем как выражение
+              // Все остальные случаи - собираем как выражение до конца строки
               let expression = '';
               let hasExpression = false;
               
               // Начинаем с текущего токена (первый токен выражения)
               while (current < tokens.length && 
                      tokens[current].type !== TokenType.EOF && 
-                     tokens[current].type !== TokenType.KEYWORD) {
+                     tokens[current].type !== TokenType.KEYWORD &&
+                     tokens[current].type !== TokenType.NEWLINE &&
+                     tokens[current].type !== TokenType.DEDENT) {
                 
                 const currentToken = tokens[current];
-
                 
                 // Проверяем допустимые типы токенов в выражении
                 if (currentToken.type === TokenType.NUMBER || 
@@ -384,16 +396,12 @@ class CrackInterpreter {
               
               expression = expression.trim();
               
-              try {
-                const result = this.evaluateExpression(expression);
-                ast.push({
-                  type: 'VariableAssignment',
-                  name: token.value,
-                  value: { type: 'Number', value: result }
-                });
-              } catch (error: any) {
-                ErrorHandler.throwError(`Ошибка в выражении: ${error.message}`, token.line);
-              }
+              // Сохраняем выражение для вычисления во время выполнения
+              ast.push({
+                type: 'VariableAssignment',
+                name: token.value,
+                value: { type: 'Expression', expression: expression }
+              });
             }
         } else if (nextToken && nextToken.type === TokenType.DOT) {
           // Вызов функции модуля: module.function()
@@ -524,6 +532,9 @@ class CrackInterpreter {
           ast.push(forNode.node);
         }
         current = forNode.newPosition;
+      } else if (token.type === TokenType.NEWLINE || token.type === TokenType.INDENT || token.type === TokenType.DEDENT) {
+        // Просто пропускаем токены новой строки и отступов в основном цикле
+        current++;
       } else {
         ErrorHandler.throwError(`Неопознанный токен '${token.value}'`, token.line);
       }
@@ -539,7 +550,7 @@ class CrackInterpreter {
       ErrorHandler.showCriticalError(
         'Ожидается скобка после if',
         tokens[start].line,
-        'Используйте: if (условие):'
+        'Используйте: if (условие)'
       );
       return { node: null, newPosition: current };
     }
@@ -559,20 +570,14 @@ class CrackInterpreter {
     
     current++;
     
-    if (!tokens[current] || tokens[current].value !== ':') {
-      ErrorHandler.showCriticalError(
-        'Ожидается : после условия',
-        tokens[start].line,
-        'Используйте: if (условие):'
-      );
-      return { node: null, newPosition: current };
+    // Пропускаем NEWLINE токены
+    while (current < tokens.length && tokens[current].type === TokenType.NEWLINE) {
+      current++;
     }
-    
-    current++;
     
     if (!tokens[current] || tokens[current].type !== TokenType.INDENT) {
       ErrorHandler.showCriticalError(
-        'Ожидается отступ после :',
+        'Ожидается отступ после условия',
         tokens[start].line,
         'Сделайте отступ для блока кода'
       );
@@ -583,23 +588,23 @@ class CrackInterpreter {
     const body = await this.parseIndentedBlock(tokens, current);
     current = body.newPosition;
     
+    // Пропускаем DEDENT токены после блока if
+    while (current < tokens.length && tokens[current].type === TokenType.DEDENT) {
+      current++;
+    }
+    
     let elseBody = null;
     if (tokens[current] && tokens[current].type === TokenType.KEYWORD && tokens[current].value === 'else') {
       current++;
-      if (!tokens[current] || tokens[current].value !== ':') {
-        ErrorHandler.showCriticalError(
-          'Ожидается : после else',
-          tokens[current-1].line,
-          'Используйте: else:'
-        );
-        return { node: null, newPosition: current };
-      }
       
-      current++;
+      // Пропускаем NEWLINE токены
+      while (current < tokens.length && tokens[current].type === TokenType.NEWLINE) {
+        current++;
+      }
       
       if (!tokens[current] || tokens[current].type !== TokenType.INDENT) {
         ErrorHandler.showCriticalError(
-          'Ожидается отступ после else:',
+          'Ожидается отступ после else',
           tokens[current-1].line,
           'Сделайте отступ для блока else'
         );
@@ -630,7 +635,7 @@ class CrackInterpreter {
       ErrorHandler.showCriticalError(
         'Ожидается скобка после while',
         tokens[start].line,
-        'Используйте: while (условие):'
+        'Используйте: while (условие)'
       );
       return { node: null, newPosition: current };
     }
@@ -650,20 +655,14 @@ class CrackInterpreter {
     
     current++;
     
-    if (!tokens[current] || tokens[current].value !== ':') {
-      ErrorHandler.showCriticalError(
-        'Ожидается : после условия',
-        tokens[start].line,
-        'Используйте: while (условие):'
-      );
-      return { node: null, newPosition: current };
+    // Пропускаем NEWLINE токены
+    while (current < tokens.length && tokens[current].type === TokenType.NEWLINE) {
+      current++;
     }
-    
-    current++;
     
     if (!tokens[current] || tokens[current].type !== TokenType.INDENT) {
       ErrorHandler.showCriticalError(
-        'Ожидается отступ после :',
+        'Ожидается отступ после условия',
         tokens[start].line,
         'Сделайте отступ для блока кода'
       );
@@ -691,7 +690,7 @@ class CrackInterpreter {
       ErrorHandler.showCriticalError(
         'Ожидается скобка после for',
         tokens[start].line,
-        'Используйте: for (i = 0; i < 10; i = i + 1) { код }'
+        'Используйте: for (i = 0; i < 10; i = i + 1)'
       );
       return { node: null, newPosition: current };
     }
@@ -792,20 +791,14 @@ class CrackInterpreter {
     
     current++;
     
-    if (!tokens[current] || tokens[current].value !== ':') {
-      ErrorHandler.showCriticalError(
-        'Ожидается : после for',
-        tokens[start].line,
-        'Используйте: for (...):'
-      );
-      return { node: null, newPosition: current };
+    // Пропускаем NEWLINE токены
+    while (current < tokens.length && tokens[current].type === TokenType.NEWLINE) {
+      current++;
     }
-    
-    current++;
     
     if (!tokens[current] || tokens[current].type !== TokenType.INDENT) {
       ErrorHandler.showCriticalError(
-        'Ожидается отступ после :',
+        'Ожидается отступ после условия',
         tokens[start].line,
         'Сделайте отступ для блока кода'
       );
@@ -1323,12 +1316,7 @@ class CrackInterpreter {
       const ast = await this.parse(tokens);
       await this.execute(ast);
     } catch (error) {
-      console.log(`
-❌ ОШИБКА СИНТАКСИСА ❌
-╔════════════════════╗
-║   Проверь код!     ║
-╚════════════════════╝
-`);
+      console.log(`❌ Ошибка синтаксиса:`);
       console.error(error);
     }
   }

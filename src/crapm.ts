@@ -59,22 +59,17 @@ class CrapmManager {
   private baseUrl = 'https://raw.githubusercontent.com/derxanax/crack/main/modules';
 
   showLogo(): void {
-    console.log(`\n${colors.CYAN}╔══════════════════════════════════════════╗${colors.RESET}`);
-    console.log(`${colors.CYAN}║${colors.RESET}     📦 ${colors.YELLOW}CRAPM${colors.RESET} - ${colors.GREEN}Package Manager${colors.RESET}     ${colors.CYAN}║${colors.RESET}`);
-    console.log(`${colors.CYAN}║${colors.RESET}    ${colors.DIM}Управление модулями для Crack${colors.RESET}     ${colors.CYAN}║${colors.RESET}`);
-    console.log(`${colors.CYAN}╚══════════════════════════════════════════╝${colors.RESET}\n`);
+    console.log(`\n📦 CRAPM - Package Manager`);
+    console.log(`Управление модулями для Crack\n`);
   }
 
   async install(moduleName: string): Promise<void> {
-    console.log(`\n${colors.CYAN}╔══════════════════════════════════════════╗${colors.RESET}`);
-    console.log(`${colors.CYAN}║${colors.RESET}     📦 ${colors.YELLOW}УСТАНОВКА МОДУЛЯ${colors.RESET} 📦        ${colors.CYAN}║${colors.RESET}`);
-    console.log(`${colors.CYAN}║${colors.RESET}        ${colors.GREEN}${moduleName}${colors.RESET}                     ${colors.CYAN}║${colors.RESET}`);
-    console.log(`${colors.CYAN}╚══════════════════════════════════════════╝${colors.RESET}\n`);
+    console.log(`\n📦 Установка модуля: ${moduleName}`);
 
     const moduleDir = path.join(process.cwd(), 'crack_modules', moduleName);
     
-    // 📁 Создание папок
-    console.log(`${colors.BLUE}📁 ЭТАП 1/4: Подготовка папок${colors.RESET}`);
+    // Создание папок
+    console.log(`📁 Подготовка папок...`);
     if (!fs.existsSync(path.join(process.cwd(), 'crack_modules'))) {
       fs.mkdirSync(path.join(process.cwd(), 'crack_modules'), { recursive: true });
     }
@@ -83,72 +78,45 @@ class CrapmManager {
       fs.mkdirSync(moduleDir, { recursive: true });
       fs.mkdirSync(path.join(moduleDir, 'src'), { recursive: true });
     }
-    await spinner('Создаю структуру папок', 500);
+    console.log(`✅ Папки созданы`);
 
     try {
-      // 📦 Скачивание файлов
-      console.log(`${colors.BLUE}📦 ЭТАП 2/4: Скачивание файлов${colors.RESET}`);
+      // Скачивание файлов
+      console.log(`📦 Скачивание файлов...`);
       
-      progressBar(1, 3, 'info.json');
+      console.log(`📄 info.json`);
       await this.downloadFile(`${this.baseUrl}/${moduleName}/info.json`, path.join(moduleDir, 'info.json'));
       
-      progressBar(2, 3, 'package.json');
+      console.log(`📄 package.json`);
       await this.downloadFile(`${this.baseUrl}/${moduleName}/package.json`, path.join(moduleDir, 'package.json'));
       
-      progressBar(3, 3, 'index.js');
+      console.log(`📄 index.js`);
       await this.downloadFile(`${this.baseUrl}/${moduleName}/src/index.js`, path.join(moduleDir, 'src', 'index.js'));
       
-      console.log(`${colors.GREEN}✅ Файлы модуля ${moduleName} скачаны${colors.RESET}\n`);
+      console.log(`✅ Файлы скачаны`);
       
-      // 🔧 Автоматическая установка npm зависимостей
-      console.log(`${colors.BLUE}🔧 ЭТАП 3/4: npm зависимости${colors.RESET}`);
+      // npm зависимости
+      console.log(`🔧 Установка npm зависимостей...`);
       await this.installNpmDependencies(moduleDir, moduleName);
       
-      // 🔗 Проверяем зависимости от других Crack модулей
-      console.log(`${colors.BLUE}🔗 ЭТАП 4/4: Crack зависимости${colors.RESET}`);
+      // Crack зависимости
+      console.log(`🔗 Проверка зависимостей...`);
       await this.installCrackDependencies(moduleName);
       
-      // 🎉 Успешное завершение
-      console.log(`${colors.BOLD}${colors.GREEN}🎉 МОДУЛЬ УСТАНОВЛЕН УСПЕШНО! 🎉${colors.RESET}`);
-      console.log(`${colors.CYAN}╔══════════════════════════════════════════╗${colors.RESET}`);
-      console.log(`${colors.CYAN}║${colors.RESET}        📝 ${colors.YELLOW}Используйте: imp ${moduleName}${colors.RESET}      ${colors.CYAN}║${colors.RESET}`);
-      console.log(`${colors.CYAN}╚══════════════════════════════════════════╝${colors.RESET}\n`);
+      // Успешное завершение
+      console.log(`🎉 Модуль ${moduleName} установлен успешно!`);
+      console.log(`📝 Используйте: imp ${moduleName}\n`);
     } catch (error: any) {
       console.log(`❌ Ошибка установки модуля ${moduleName}`);
       
       if (error.message.includes('404')) {
-        console.log(`
-🤔 Модуль "${moduleName}" не найден!
-
-💡 Возможные причины:
-  • Проверьте название модуля (возможно опечатка)
-  • Модуль еще не создан
-  • Используйте команду 'crapm list-available' для просмотра доступных модулей
-
-📋 Популярные модули:
-  • input  - Работа с пользовательским вводом
-  • math   - Математические функции
-  • string - Работа со строками
-  • file   - Работа с файлами
-`);
-      } else if (error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
-        console.log(`
-🌐 Проблема с сетевым соединением!
-
-💡 Проверьте:
-  • Подключение к интернету
-  • Настройки прокси/фаервола
-  • DNS настройки
-`);
-      } else {
-        console.log(`
-🔧 Техническая ошибка: ${error.message}
-
-💡 Попробуйте:
-  • Перезапустить команду
-  • Проверить права доступа к папке
-  • Освободить место на диске
-`);
+        console.log(`🤔 Модуль "${moduleName}" не найден!`);
+        console.log(`💡 Проверьте название модуля или используйте 'crapm list-available'`);
+        console.log(`📋 Популярные модули: input, math, string, file`);
+              } else if (error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
+          console.log(`🌐 Проблема с интернетом! Проверьте подключение.`);
+              } else {
+          console.log(`🔧 Ошибка: ${error.message}`);
       }
       
       if (fs.existsSync(moduleDir)) {
@@ -170,12 +138,12 @@ class CrapmManager {
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
       
       if (!packageJson.dependencies || Object.keys(packageJson.dependencies).length === 0) {
-        console.log(`${colors.GREEN}✅ npm зависимости не требуются${colors.RESET}\n`);
+        console.log(`✅ npm зависимости не требуются`);
         return;
       }
 
-      console.log(`${colors.DIM}📋 Зависимости: ${Object.keys(packageJson.dependencies).join(', ')}${colors.RESET}`);
-      await spinner('Устанавливаю npm зависимости', 2000);
+      console.log(`📋 Зависимости: ${Object.keys(packageJson.dependencies).join(', ')}`);
+      console.log(`⏳ Установка npm пакетов...`);
 
       const { stdout, stderr } = await execAsync('npm install', { cwd: moduleDir });
       
@@ -183,7 +151,7 @@ class CrapmManager {
         console.log(`${colors.YELLOW}⚠️ Предупреждения: ${stderr}${colors.RESET}`);
       }
       
-      console.log(`${colors.GREEN}✅ npm зависимости установлены${colors.RESET}\n`);
+      console.log(`✅ npm зависимости установлены`);
       
     } catch (error: any) {
       console.log(`${colors.RED}❌ Ошибка npm зависимостей:${colors.RESET}`);
@@ -231,9 +199,7 @@ class CrapmManager {
   }
 
   async listAvailable(): Promise<void> {
-    console.log(`\n${colors.CYAN}╔══════════════════════════════════════════╗${colors.RESET}`);
-    console.log(`${colors.CYAN}║${colors.RESET}       📋 ${colors.YELLOW}ДОСТУПНЫЕ МОДУЛИ${colors.RESET} 📋        ${colors.CYAN}║${colors.RESET}`);
-    console.log(`${colors.CYAN}╚══════════════════════════════════════════╝${colors.RESET}\n`);
+    console.log(`\n📋 Доступные модули:`);
 
     try {
       // Читаем список модулей из файла
@@ -260,7 +226,7 @@ class CrapmManager {
         }
         
         modulesList.modules.forEach((module: any) => {
-          console.log(`  ${colors.GREEN}📋 ${colors.BOLD}${module.name.padEnd(10)}${colors.RESET} ${colors.DIM}- ${module.description}${colors.RESET}`);
+          console.log(`  📋 ${module.name} - ${module.description}`);
         });
       }
     } catch (error: any) {
@@ -269,11 +235,8 @@ class CrapmManager {
       return;
     }
 
-    console.log(`\n${colors.CYAN}╔══════════════════════════════════════════╗${colors.RESET}`);
-    console.log(`${colors.CYAN}║${colors.RESET} ${colors.YELLOW}💡 Установка:${colors.RESET} crapm install <module>  ${colors.CYAN}║${colors.RESET}`);
-    console.log(`${colors.CYAN}║${colors.RESET} ${colors.GREEN}🔍 Пример:${colors.RESET} crapm install input      ${colors.CYAN}║${colors.RESET}`);
-    console.log(`${colors.CYAN}║${colors.RESET} ${colors.PURPLE}🚀 Автоустановка всех зависимостей!${colors.RESET}    ${colors.CYAN}║${colors.RESET}`);
-    console.log(`${colors.CYAN}╚══════════════════════════════════════════╝${colors.RESET}\n`);
+    console.log(`\n💡 Установка: crapm install <module>`);
+    console.log(`🔍 Пример: crapm install input\n`);
   }
 
   uninstall(moduleName: string): void {
@@ -374,17 +337,12 @@ function main(): void {
 
   if (args.length === 0) {
     crapm.showLogo();
-    console.log(`${colors.PURPLE}╔══════════════════════════════════════════╗${colors.RESET}`);
-    console.log(`${colors.PURPLE}║${colors.RESET}               ${colors.YELLOW}КОМАНДЫ${colors.RESET}                ${colors.PURPLE}║${colors.RESET}`);
-    console.log(`${colors.PURPLE}╠══════════════════════════════════════════╣${colors.RESET}`);
-    console.log(`${colors.PURPLE}║${colors.RESET} ${colors.GREEN}install <module>${colors.RESET}     - Установить модуль   ${colors.PURPLE}║${colors.RESET}`);
-    console.log(`${colors.PURPLE}║${colors.RESET} ${colors.RED}uninstall <module>${colors.RESET}   - Удалить модуль     ${colors.PURPLE}║${colors.RESET}`);
-    console.log(`${colors.PURPLE}║${colors.RESET} ${colors.BLUE}list${colors.RESET}                - Список установленных ${colors.PURPLE}║${colors.RESET}`);
-    console.log(`${colors.PURPLE}║${colors.RESET} ${colors.CYAN}list-available${colors.RESET}      - Список доступных    ${colors.PURPLE}║${colors.RESET}`);
-    console.log(`${colors.PURPLE}╠══════════════════════════════════════════╣${colors.RESET}`);
-    console.log(`${colors.PURPLE}║${colors.RESET} ${colors.YELLOW}💡 Пример:${colors.RESET} crapm install input       ${colors.PURPLE}║${colors.RESET}`);
-    console.log(`${colors.PURPLE}║${colors.RESET} ${colors.PURPLE}🚀 Автоустановка всех зависимостей!${colors.RESET}      ${colors.PURPLE}║${colors.RESET}`);
-    console.log(`${colors.PURPLE}╚══════════════════════════════════════════╝${colors.RESET}\n`);
+    console.log(`Команды:`);
+    console.log(`  install <module>     - Установить модуль`);
+    console.log(`  uninstall <module>   - Удалить модуль`);
+    console.log(`  list                 - Список установленных`);
+    console.log(`  list-available       - Список доступных`);
+    console.log(`\n💡 Пример: crapm install input\n`);
     return;
   }
 
