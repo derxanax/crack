@@ -522,41 +522,17 @@ class CrackInterpreter {
             } else {
               // Все остальные случаи - собираем как выражение до конца строки
               let expression = '';
-              let hasExpression = false;
-              
-              // Начинаем с текущего токена (первый токен выражения)
               while (current < tokens.length && 
-                     tokens[current].type !== TokenType.EOF && 
+                     tokens[current].type !== TokenType.DEDENT && 
                      tokens[current].type !== TokenType.KEYWORD &&
-                     tokens[current].type !== TokenType.NEWLINE &&
-                     tokens[current].type !== TokenType.DEDENT) {
-                
-                const currentToken = tokens[current];
-                
-                // Проверяем допустимые типы токенов в выражении
-                if (currentToken.type === TokenType.NUMBER || 
-                    currentToken.type === TokenType.IDENTIFIER ||
-                    currentToken.type === TokenType.OPERATOR ||
-                    currentToken.type === TokenType.PARENTHESIS) {
-                  expression += currentToken.value + ' ';
-                  hasExpression = true;
-                } else {
-                  break; // Встретили неподходящий токен
-                }
+                     tokens[current].type !== TokenType.NEWLINE) {
+                expression += tokens[current].value + ' ';
                 current++;
               }
-              
-              if (!hasExpression) {
-                ErrorHandler.throwError('Отсутствует значение для присваивания', token.line);
-              }
-              
-              expression = expression.trim();
-              
-              // Сохраняем выражение для вычисления во время выполнения
               ast.push({
                 type: 'VariableAssignment',
                 name: token.value,
-                value: { type: 'Expression', expression: expression }
+                value: { type: 'Expression', expression: expression.trim() }
               });
             }
         } else if (nextToken && nextToken.type === TokenType.DOT) {
@@ -988,7 +964,12 @@ class CrackInterpreter {
            tokens[current].type !== TokenType.LOGICAL &&
            tokens[current].value !== ')' && 
            tokens[current].value !== ';') {
-      leftSide += tokens[current].value + ' ';
+      if (tokens[current].type === TokenType.STRING) {
+        leftSide += '"' + tokens[current].value + '"';
+      } else {
+        leftSide += tokens[current].value;
+      }
+      leftSide += ' ';
       current++;
     }
     
@@ -1022,7 +1003,12 @@ class CrackInterpreter {
            tokens[current].type !== TokenType.LOGICAL &&
            tokens[current].value !== ')' && 
            tokens[current].value !== ';') {
-      rightSide += tokens[current].value + ' ';
+      if (tokens[current].type === TokenType.STRING) {
+        rightSide += '"' + tokens[current].value + '"';
+      } else {
+        rightSide += tokens[current].value;
+      }
+      rightSide += ' ';
       current++;
     }
     
@@ -1098,6 +1084,56 @@ class CrackInterpreter {
             }
           }
         }
+      } else if (token.type === TokenType.KEYWORD && token.value === 'if') {
+        const ifNode = await this.parseIfStatement(tokens, current);
+        if (ifNode.node) {
+          body.push(ifNode.node);
+        }
+        current = ifNode.newPosition;
+      } else if (token.type === TokenType.KEYWORD && token.value === 'while') {
+        const whileNode = await this.parseWhileStatement(tokens, current);
+        if (whileNode.node) {
+          body.push(whileNode.node);
+        }
+        current = whileNode.newPosition;
+      } else if (token.type === TokenType.KEYWORD && token.value === 'for') {
+        const forNode = await this.parseForStatement(tokens, current);
+        if (forNode.node) {
+          body.push(forNode.node);
+        }
+        current = forNode.newPosition;
+      } else if (token.type === TokenType.KEYWORD && token.value === 'imp') {
+        current++;
+        const moduleToken = tokens[current];
+        if (moduleToken && moduleToken.type === TokenType.IDENTIFIER) {
+          body.push({
+            type: 'ModuleImport',
+            module: moduleToken.value
+          });
+          current++;
+        }
+      } else if (token.type === TokenType.KEYWORD && token.value === 'codego') {
+        current++;
+        const colonToken = tokens[current];
+        if (colonToken && colonToken.value === ':') {
+          current++;
+          const openToken = tokens[current];
+          if (openToken && openToken.value === '(') {
+            current++;
+            const varToken = tokens[current];
+            if (varToken && varToken.type === TokenType.IDENTIFIER) {
+              current++;
+              const closeToken = tokens[current];
+              if (closeToken && closeToken.value === ')') {
+                body.push({
+                  type: 'CodeExecution',
+                  variable: varToken.value
+                });
+                current++;
+              }
+            }
+          }
+        }
       } else if (token.type === TokenType.IDENTIFIER) {
         const nextToken = tokens[current + 1];
         if (nextToken && nextToken.type === TokenType.OPERATOR && nextToken.value === '=') {
@@ -1121,9 +1157,55 @@ class CrackInterpreter {
                 value: { type: 'String', value: valueToken.value }
               });
               current++;
+            } else if (valueToken.type === TokenType.IDENTIFIER && tokens[current + 1] && tokens[current + 1].type === TokenType.DOT) {
+              // Присваивание результата вызова функции модуля: var = module.function()
+              const moduleToken = valueToken;
+              current += 2; // пропускаем модуль и точку
+              const functionToken = tokens[current];
+              
+              if (functionToken && functionToken.type === TokenType.IDENTIFIER) {
+                current++;
+                const openParenToken = tokens[current];
+                
+                if (openParenToken && openParenToken.value === '(') {
+                  current++;
+                  
+                  // Собираем аргументы функции
+                  const args: any[] = [];
+                  while (current < tokens.length && tokens[current].value !== ')') {
+                    const argToken = tokens[current];
+                    if (argToken.type === TokenType.STRING) {
+                      args.push({ type: 'String', value: argToken.value });
+                    } else if (argToken.type === TokenType.NUMBER) {
+                      args.push({ type: 'Number', value: parseInt(argToken.value) });
+                    } else if (argToken.type === TokenType.IDENTIFIER) {
+                      args.push({ type: 'Variable', name: argToken.value });
+                    }
+                    current++;
+                  }
+                  
+                  if (tokens[current] && tokens[current].value === ')') {
+                    current++;
+                    
+                    body.push({
+                      type: 'VariableAssignment',
+                      name: token.value,
+                      value: { 
+                        type: 'ModuleCall', 
+                        module: moduleToken.value,
+                        function: functionToken.value,
+                        args: args
+                      }
+                    });
+                  }
+                }
+              }
             } else {
               let expression = '';
-              while (current < tokens.length && tokens[current].type !== TokenType.DEDENT && tokens[current].type !== TokenType.KEYWORD) {
+              while (current < tokens.length && 
+                     tokens[current].type !== TokenType.DEDENT && 
+                     tokens[current].type !== TokenType.KEYWORD &&
+                     tokens[current].type !== TokenType.NEWLINE) {
                 expression += tokens[current].value + ' ';
                 current++;
               }
@@ -1134,92 +1216,50 @@ class CrackInterpreter {
               });
             }
           }
-        } else {
-          current++;
-        }
-      } else {
-        current++;
-      }
-    }
-    
-    return { body, newPosition: current };
-  }
-
-  async parseBlock(tokens: Token[], start: number): Promise<{body: ASTNode[], newPosition: number}> {
-    const body: ASTNode[] = [];
-    let current = start;
-    
-    while (current < tokens.length && tokens[current].value !== '}') {
-      const token = tokens[current];
-      
-      if (token.type === TokenType.KEYWORD && token.value === 'conlog') {
-        current++;
-        const nextToken = tokens[current];
-        
-        if (nextToken && nextToken.type === TokenType.STRING) {
-          body.push({
-            type: 'FunctionCall',
-            name: 'conlog',
-            args: [{ type: 'String', value: nextToken.value }]
-          });
-          current++;
-        } else if (nextToken && nextToken.type === TokenType.PARENTHESIS && nextToken.value === '(') {
-          current++;
-          const varToken = tokens[current];
+        } else if (nextToken && nextToken.type === TokenType.DOT) {
+          // Вызов функции модуля: module.function()
+          current += 2; // пропускаем модуль и точку
+          const functionToken = tokens[current];
           
-          if (varToken && varToken.type === TokenType.IDENTIFIER) {
+          if (functionToken && functionToken.type === TokenType.IDENTIFIER) {
             current++;
-            const closeToken = tokens[current];
+            const openParenToken = tokens[current];
             
-            if (closeToken && closeToken.value === ')') {
-              body.push({
-                type: 'FunctionCall',
-                name: 'conlog',
-                args: [{ type: 'Variable', name: varToken.value }]
-              });
+            if (openParenToken && openParenToken.value === '(') {
               current++;
-            }
-          }
-        }
-      } else if (token.type === TokenType.IDENTIFIER) {
-        const nextToken = tokens[current + 1];
-        if (nextToken && nextToken.type === TokenType.OPERATOR && nextToken.value === '=') {
-          current += 2;
-          const valueToken = tokens[current];
-          
-          if (valueToken) {
-            if (valueToken.type === TokenType.NUMBER && (current + 1 >= tokens.length || 
-                tokens[current + 1].value === '}' || tokens[current + 1].type === TokenType.KEYWORD)) {
-              body.push({
-                type: 'VariableAssignment',
-                name: token.value,
-                value: { type: 'Number', value: parseInt(valueToken.value) }
-              });
-              current++;
-            } else if (valueToken.type === TokenType.STRING && (current + 1 >= tokens.length || 
-                      tokens[current + 1].value === '}' || tokens[current + 1].type === TokenType.KEYWORD)) {
-              body.push({
-                type: 'VariableAssignment',
-                name: token.value,
-                value: { type: 'String', value: valueToken.value }
-              });
-              current++;
-            } else {
-              let expression = '';
-              while (current < tokens.length && tokens[current].value !== '}' && tokens[current].type !== TokenType.KEYWORD) {
-                expression += tokens[current].value + ' ';
+              
+              // Собираем аргументы функции
+              const args: any[] = [];
+              while (current < tokens.length && tokens[current].value !== ')') {
+                const argToken = tokens[current];
+                if (argToken.type === TokenType.STRING) {
+                  args.push({ type: 'String', value: argToken.value });
+                } else if (argToken.type === TokenType.NUMBER) {
+                  args.push({ type: 'Number', value: parseInt(argToken.value) });
+                } else if (argToken.type === TokenType.IDENTIFIER) {
+                  args.push({ type: 'Variable', name: argToken.value });
+                }
                 current++;
               }
-              body.push({
-                type: 'VariableAssignment',
-                name: token.value,
-                value: { type: 'Expression', expression: expression.trim() }
-              });
+              
+              if (tokens[current] && tokens[current].value === ')') {
+                current++;
+                body.push({
+                  type: 'ModuleFunctionCall',
+                  module: token.value,
+                  function: functionToken.value,
+                  args: args
+                });
+              }
             }
           }
         } else {
           current++;
         }
+      } else if (token.type === TokenType.NEWLINE || 
+                 token.type === TokenType.INDENT || 
+                 token.type === TokenType.DEDENT) {
+        current++; // Пропускаем служебные токены
       } else {
         current++;
       }
@@ -1385,8 +1425,8 @@ class CrackInterpreter {
     const right = this.resolveValue(condition.right);
     
     switch (condition.operator) {
-      case '==': return left == right;
-      case '!=': return left != right;
+      case '==': return left === right;
+      case '!=': return left !== right;
       case '>': return left > right;
       case '<': return left < right;
       case '>=': return left >= right;
@@ -1398,14 +1438,75 @@ class CrackInterpreter {
   resolveValue(value: string): any {
     if (value === 'true') return true;
     if (value === 'false') return false;
-    if (!isNaN(Number(value))) return Number(value);
+    // Обрабатываем строковые литералы в кавычках
+    if (value.startsWith('"') && value.endsWith('"')) {
+      return value.slice(1, -1); // убираем кавычки
+    }
+    // Проверяем переменные СНАЧАЛА и возвращаем их значение как есть
     if (this.variables.has(value)) return this.variables.get(value);
+    // Преобразуем в числа ТОЛЬКО если значение не найдено в переменных И оно чисто числовое
+    if (/^\d+(\.\d+)?$/.test(value)) return Number(value);
     return value;
   }
 
-  evaluateExpression(expr: string): number {
+  evaluateModuleCall(expr: string): any {
+    try {
+      // Парсим выражение вида "module.function(args)"
+      const dotIndex = expr.indexOf('.');
+      const openParenIndex = expr.indexOf('(');
+      const closeParenIndex = expr.lastIndexOf(')');
+      
+      if (dotIndex === -1 || openParenIndex === -1 || closeParenIndex === -1) {
+        throw new Error('Неправильный формат вызова модуля');
+      }
+      
+      const moduleName = expr.substring(0, dotIndex).trim();
+      const functionName = expr.substring(dotIndex + 1, openParenIndex).trim();
+      const argsStr = expr.substring(openParenIndex + 1, closeParenIndex).trim();
+      
+      // Парсим аргументы
+      const args: any[] = [];
+      if (argsStr.length > 0) {
+        if (argsStr.startsWith('"') && argsStr.endsWith('"')) {
+          // Строковый аргумент
+          args.push(argsStr.slice(1, -1));
+        } else if (!isNaN(Number(argsStr))) {
+          // Числовой аргумент
+          args.push(Number(argsStr));
+        } else if (this.variables.has(argsStr)) {
+          // Переменная
+          args.push(this.variables.get(argsStr));
+        } else {
+          args.push(argsStr);
+        }
+      }
+      
+      // Вызываем функцию модуля
+      const moduleObj = this.modules.get(moduleName);
+      if (moduleObj && typeof moduleObj[functionName] === 'function') {
+        return moduleObj[functionName](...args);
+      } else {
+        throw new Error(`Функция ${functionName} не найдена в модуле ${moduleName}`);
+      }
+    } catch (error: any) {
+      throw new Error(`Ошибка вызова модуля: ${error.message}`);
+    }
+  }
+
+  evaluateExpression(expr: string): any {
     try {
       let processedExpr = expr.trim();
+      
+      // Проверяем если это вызов функции модуля
+      if (processedExpr.includes('.') && processedExpr.includes('(') && processedExpr.includes(')')) {
+        return this.evaluateModuleCall(processedExpr);
+      }
+      
+      // Проверяем если это простая строка без математических операторов
+      if (!/[+\-*/()]/.test(processedExpr) && !processedExpr.match(/^\d+$/)) {
+        // Если не содержит математических операторов и не является числом, возвращаем как строку
+        return processedExpr;
+      }
       
       // Заменяем переменные на их значения
       this.variables.forEach((varValue, varName) => {
