@@ -20,6 +20,8 @@ enum TokenType {
   INDENT = 'INDENT',
   DEDENT = 'DEDENT',
   NEWLINE = 'NEWLINE',
+  BLOCK_START = 'BLOCK_START',
+  BLOCK_END = 'BLOCK_END',
   UNKNOWN = 'UNKNOWN',
   EOF = 'EOF'
 }
@@ -54,7 +56,7 @@ class ErrorHandler {
 }
 
 const KEYWORDS = ['conlog', 'imp', 'codego', 'if', 'else', 'while', 'for'];
-const OPERATORS = ['+', '-', '*', '/', '=', '?', '#', ';'];
+const OPERATORS = ['+', '-', '*', '/', '=', '?', ';', ':'];
 const COMPARISON_OPERATORS = ['==', '!=', '>=', '<=', '>', '<'];
 const LOGICAL_OPERATORS = ['&&', '||', '!'];
 
@@ -177,6 +179,19 @@ class CrackInterpreter {
         continue;
       }
 
+      // Проверка блочных маркеров (ДОЛЖНА БЫТЬ ДО логических операторов!)
+      if (char === '*' && trimmedLine.substring(current, current + 3) === '**!') {
+        tokens.push({ type: TokenType.BLOCK_START, value: '**!', line: lineNumber });
+        current += 3;
+        continue;
+      }
+
+      if (char === '!' && trimmedLine.substring(current, current + 3) === '!**') {
+        tokens.push({ type: TokenType.BLOCK_END, value: '!**', line: lineNumber });
+        current += 3;
+        continue;
+      }
+
       // Check for logical operators
       let logicalOp = '';
       for (const op of LOGICAL_OPERATORS) {
@@ -191,12 +206,16 @@ class CrackInterpreter {
         continue;
       }
 
-
-
       if (char === '.') {
         tokens.push({ type: TokenType.DOT, value: char, line: lineNumber });
         current++;
         continue;
+      }
+
+      // Комментарии ## (ДОЛЖНЫ БЫТЬ ДО OPERATORS!)
+      if (char === '#' && trimmedLine[current + 1] === '#') {
+        // Пропускаем всю строку до конца как комментарий
+        break; // выходим из цикла обработки символов в строке
       }
 
       if (OPERATORS.includes(char)) {
@@ -229,6 +248,12 @@ class CrackInterpreter {
         continue;
       }
 
+      // Пропускаем Unicode символы (русские буквы, эмодзи и т.д.)
+      if (/\p{L}/u.test(char) || /\p{M}/u.test(char) || /\p{S}/u.test(char)) {
+        current++; // просто пропускаем без создания токена
+        continue;
+      }
+
       ErrorHandler.throwError(`Неизвестный символ '${char}'`, lineNumber);
       }
 
@@ -243,6 +268,86 @@ class CrackInterpreter {
     return tokens;
   }
 
+  async parseConlogChain(tokens: Token[], start: number): Promise<{node: ASTNode | null, newPosition: number}> {
+    let current = start;
+    const commands: any[] = [];
+    
+    // Парсим первый conlog
+    if (tokens[current].type === TokenType.KEYWORD && tokens[current].value === 'conlog') {
+      current++;
+      const nextToken = tokens[current];
+      
+      if (nextToken?.type === TokenType.STRING) {
+        commands.push({
+          type: 'FunctionCall',
+          name: 'conlog',
+          args: [{ type: 'String', value: nextToken.value }]
+        });
+        current++;
+      } else if (nextToken?.type === TokenType.PARENTHESIS && nextToken.value === '(') {
+        current++;
+        const varToken = tokens[current];
+        current++;
+        const closeToken = tokens[current];
+        current++;
+        
+        commands.push({
+          type: 'FunctionCall',
+          name: 'conlog',
+          args: [{ type: 'Variable', name: varToken.value }]
+        });
+      }
+      
+      // Проверяем есть ли && после
+      while (current < tokens.length && 
+             tokens[current].type === TokenType.LOGICAL && 
+             tokens[current].value === '&&') {
+        current++; // пропускаем &&
+        
+        // Проверяем что после && идет conlog
+        if (tokens[current]?.type === TokenType.KEYWORD && tokens[current].value === 'conlog') {
+          current++;
+          const nextToken = tokens[current];
+          
+          if (nextToken?.type === TokenType.STRING) {
+            commands.push({
+              type: 'FunctionCall',
+              name: 'conlog',
+              args: [{ type: 'String', value: nextToken.value }]
+            });
+            current++;
+          } else if (nextToken?.type === TokenType.PARENTHESIS && nextToken.value === '(') {
+            current++;
+            const varToken = tokens[current];
+            current++;
+            const closeToken = tokens[current];
+            current++;
+            
+            commands.push({
+              type: 'FunctionCall',
+              name: 'conlog',
+              args: [{ type: 'Variable', name: varToken.value }]
+            });
+          }
+        } else {
+          break; // Если после && не conlog, прерываем цепочку
+        }
+      }
+    }
+    
+    if (commands.length > 1) {
+      return {
+        node: {
+          type: 'ConlogChain',
+          commands: commands
+        },
+        newPosition: current
+      };
+    }
+    
+    return { node: null, newPosition: start };
+  }
+
   async parse(tokens: Token[]): Promise<ASTNode[]> {
     const ast: ASTNode[] = [];
     let current = 0;
@@ -252,45 +357,51 @@ class CrackInterpreter {
 
 
       if (token.type === TokenType.KEYWORD && token.value === 'conlog') {
-        current++;
-        const nextToken = tokens[current];
-        
-        if (!nextToken || nextToken.type === TokenType.EOF) {
-          ErrorHandler.throwError('Команда conlog требует аргумент. Используйте: conlog "текст" или conlog (переменная)', token.line);
-        }
-        
-        if (nextToken.type === TokenType.STRING) {
-          ast.push({
-            type: 'FunctionCall',
-            name: 'conlog',
-            args: [{ type: 'String', value: nextToken.value }]
-          });
-          current++;
-        } else if (nextToken.type === TokenType.PARENTHESIS && nextToken.value === '(') {
-          current++;
-          const varToken = tokens[current];
-          
-          if (!varToken || varToken.type !== TokenType.IDENTIFIER) {
-            ErrorHandler.throwError('Неправильный синтаксис conlog. Используйте: conlog (имя_переменной)', token.line);
-          }
-          
-          current++;
-          const closeToken = tokens[current];
-          
-          if (!closeToken || closeToken.value !== ')') {
-            ErrorHandler.throwError('Незакрытая скобка в conlog. Добавьте закрывающую скобку )', token.line);
-          }
-          
-          // Проверка переменной будет выполнена во время выполнения
-          
-          ast.push({
-            type: 'FunctionCall', 
-            name: 'conlog',
-            args: [{ type: 'Variable', name: varToken.value }]
-          });
-          current++;
+        // Пробуем сначала распарсить как цепочку
+        const chainResult = await this.parseConlogChain(tokens, current);
+        if (chainResult.node) {
+          ast.push(chainResult.node);
+          current = chainResult.newPosition;
         } else {
-          ErrorHandler.throwError('Неправильный аргумент для conlog. Используйте: conlog "строка" или conlog (переменная)', nextToken.line);
+          // Обычный одиночный conlog
+          current++;
+          const nextToken = tokens[current];
+          
+          if (!nextToken || nextToken.type === TokenType.EOF) {
+            ErrorHandler.throwError('Команда conlog требует аргумент. Используйте: conlog "текст" или conlog (переменная)', token.line);
+          }
+          
+          if (nextToken.type === TokenType.STRING) {
+            ast.push({
+              type: 'FunctionCall',
+              name: 'conlog',
+              args: [{ type: 'String', value: nextToken.value }]
+            });
+            current++;
+          } else if (nextToken.type === TokenType.PARENTHESIS && nextToken.value === '(') {
+            current++;
+            const varToken = tokens[current];
+            
+            if (!varToken || varToken.type !== TokenType.IDENTIFIER) {
+              ErrorHandler.throwError('Неправильный синтаксис conlog. Используйте: conlog (имя_переменной)', token.line);
+            }
+            
+            current++;
+            const closeToken = tokens[current];
+            
+            if (!closeToken || closeToken.value !== ')') {
+              ErrorHandler.throwError('Незакрытая скобка в conlog. Добавьте закрывающую скобку )', token.line);
+            }
+            
+            ast.push({
+              type: 'FunctionCall', 
+              name: 'conlog',
+              args: [{ type: 'Variable', name: varToken.value }]
+            });
+            current++;
+          } else {
+            ErrorHandler.throwError('Неправильный аргумент для conlog. Используйте: conlog "строка" или conlog (переменная)', nextToken.line);
+          }
         }
       } else if (token.type === TokenType.IDENTIFIER) {
         const nextToken = tokens[current + 1];
@@ -362,6 +473,51 @@ class CrackInterpreter {
                      });
                   }
                 }
+              }
+            } else if (valueToken.type === TokenType.BLOCK_START) {
+              // Блочное присваивание
+              current++; // пропускаем **!
+              let blockCode = '';
+              
+              // Ищем закрывающий маркер !**
+              while (current < tokens.length && tokens[current].type !== TokenType.BLOCK_END && tokens[current].type !== TokenType.EOF) {
+                const currentToken = tokens[current];
+                
+                if (currentToken.type === TokenType.NEWLINE) {
+                  blockCode += '\n';
+                } else if (currentToken.type === TokenType.INDENT) {
+                  blockCode += '  '; // отступ = 2 пробела
+                } else if (currentToken.type === TokenType.DEDENT) {
+                  // dedent игнорируем
+                } else {
+                  // Восстанавливаем кавычки для строк
+                  if (currentToken.type === TokenType.STRING) {
+                    blockCode += '"' + currentToken.value + '"';
+                  } else {
+                    blockCode += currentToken.value;
+                  }
+                  
+                  // Добавляем пробел после токена если следующий не NEWLINE/DEDENT/BLOCK_END
+                  if (tokens[current + 1] && 
+                      tokens[current + 1].type !== TokenType.NEWLINE &&
+                      tokens[current + 1].type !== TokenType.DEDENT &&
+                      tokens[current + 1].type !== TokenType.BLOCK_END) {
+                    blockCode += ' ';
+                  }
+                }
+                current++;
+              }
+              
+              if (tokens[current] && tokens[current].type === TokenType.BLOCK_END) {
+                current++; // пропускаем !**
+                
+                ast.push({
+                  type: 'VariableAssignment',
+                  name: token.value,
+                  value: { type: 'BlockCode', code: blockCode.trim() }
+                });
+              } else {
+                ErrorHandler.throwError('Незакрытый блок кода. Добавьте !**', token.line);
               }
             } else {
               // Все остальные случаи - собираем как выражение до конца строки
@@ -824,17 +980,20 @@ class CrackInterpreter {
 
   async parseCondition(tokens: Token[], start: number): Promise<{condition: any, newPosition: number}> {
     let current = start;
-    let leftSide = '';
     
+    // Парсим левую часть до оператора
+    let leftSide = '';
     while (current < tokens.length && 
            tokens[current].type !== TokenType.COMPARISON && 
+           tokens[current].type !== TokenType.LOGICAL &&
            tokens[current].value !== ')' && 
            tokens[current].value !== ';') {
       leftSide += tokens[current].value + ' ';
       current++;
     }
     
-    if (current >= tokens.length || tokens[current].type !== TokenType.COMPARISON) {
+    if (current >= tokens.length || 
+        (tokens[current].type !== TokenType.COMPARISON && tokens[current].type !== TokenType.LOGICAL)) {
       return {
         condition: { left: leftSide.trim(), operator: '==', right: 'true' },
         newPosition: current
@@ -844,20 +1003,53 @@ class CrackInterpreter {
     const operator = tokens[current].value;
     current++;
     
+    // Для логических операторов парсим рекурсивно
+    if (operator === '&&' || operator === '||') {
+      const rightCondition = await this.parseCondition(tokens, current);
+      return {
+        condition: {
+          operator: operator,
+          left: { left: leftSide.trim(), operator: '==', right: 'true' },
+          right: rightCondition.condition
+        },
+        newPosition: rightCondition.newPosition
+      };
+    }
+    
+    // Для операторов сравнения парсим правую часть
     let rightSide = '';
     while (current < tokens.length && 
+           tokens[current].type !== TokenType.LOGICAL &&
            tokens[current].value !== ')' && 
            tokens[current].value !== ';') {
       rightSide += tokens[current].value + ' ';
       current++;
     }
     
+    const condition = {
+      left: leftSide.trim(),
+      operator: operator,
+      right: rightSide.trim()
+    };
+    
+    // Проверяем есть ли логический оператор после
+    if (current < tokens.length && tokens[current].type === TokenType.LOGICAL) {
+      const logicalOp = tokens[current].value;
+      current++;
+      const rightCondition = await this.parseCondition(tokens, current);
+      
+      return {
+        condition: {
+          operator: logicalOp,
+          left: condition,
+          right: rightCondition.condition
+        },
+        newPosition: rightCondition.newPosition
+      };
+    }
+    
     return {
-      condition: {
-        left: leftSide.trim(),
-        operator: operator,
-        right: rightSide.trim()
-      },
+      condition: condition,
       newPosition: current
     };
   }
@@ -870,31 +1062,39 @@ class CrackInterpreter {
       const token = tokens[current];
       
       if (token.type === TokenType.KEYWORD && token.value === 'conlog') {
-        current++;
-        const nextToken = tokens[current];
-        
-        if (nextToken && nextToken.type === TokenType.STRING) {
-          body.push({
-            type: 'FunctionCall',
-            name: 'conlog',
-            args: [{ type: 'String', value: nextToken.value }]
-          });
+        // Пробуем сначала распарсить как цепочку
+        const chainResult = await this.parseConlogChain(tokens, current);
+        if (chainResult.node) {
+          body.push(chainResult.node);
+          current = chainResult.newPosition;
+        } else {
+          // Обычный одиночный conlog
           current++;
-        } else if (nextToken && nextToken.type === TokenType.PARENTHESIS && nextToken.value === '(') {
-          current++;
-          const varToken = tokens[current];
+          const nextToken = tokens[current];
           
-          if (varToken && varToken.type === TokenType.IDENTIFIER) {
+          if (nextToken && nextToken.type === TokenType.STRING) {
+            body.push({
+              type: 'FunctionCall',
+              name: 'conlog',
+              args: [{ type: 'String', value: nextToken.value }]
+            });
             current++;
-            const closeToken = tokens[current];
+          } else if (nextToken && nextToken.type === TokenType.PARENTHESIS && nextToken.value === '(') {
+            current++;
+            const varToken = tokens[current];
             
-            if (closeToken && closeToken.value === ')') {
-              body.push({
-                type: 'FunctionCall',
-                name: 'conlog',
-                args: [{ type: 'Variable', name: varToken.value }]
-              });
+            if (varToken && varToken.type === TokenType.IDENTIFIER) {
               current++;
+              const closeToken = tokens[current];
+              
+              if (closeToken && closeToken.value === ')') {
+                body.push({
+                  type: 'FunctionCall',
+                  name: 'conlog',
+                  args: [{ type: 'Variable', name: varToken.value }]
+                });
+                current++;
+              }
             }
           }
         }
@@ -1031,6 +1231,28 @@ class CrackInterpreter {
   async execute(ast: ASTNode[]): Promise<void> {
     for (const node of ast) {
       switch (node.type) {
+        case 'ConlogChain':
+          let output = '';
+          for (let i = 0; i < node.commands.length; i++) {
+            const command = node.commands[i];
+            if (command.args[0].type === 'String') {
+              output += command.args[0].value;
+            } else if (command.args[0].type === 'Variable') {
+              const value = this.variables.get(command.args[0].name);
+              if (value === undefined) {
+                console.log(`❌ Ошибка: переменная '${command.args[0].name}' не определена`);
+                return;
+              }
+              output += value;
+            }
+            // Добавляем пробел между элементами цепочки (кроме последнего)
+            if (i < node.commands.length - 1) {
+              output += ' ';
+            }
+          }
+          console.log(output);
+          break;
+
         case 'FunctionCall':
           if (node.name === 'conlog') {
             if (node.args[0].type === 'String') {
@@ -1081,6 +1303,8 @@ class CrackInterpreter {
               console.log(`❌ Функция ${node.value.function} не найдена в модуле ${node.value.module}`);
               this.variables.set(node.name, 0);
             }
+          } else if (node.value.type === 'BlockCode') {
+            this.variables.set(node.name, node.value.code);
           }
           break;
 
@@ -1145,6 +1369,18 @@ class CrackInterpreter {
   }
 
   evaluateCondition(condition: any): boolean {
+    // Обработка логических операторов
+    if (condition.operator === '&&') {
+      return this.evaluateCondition(condition.left) && this.evaluateCondition(condition.right);
+    }
+    if (condition.operator === '||') {
+      return this.evaluateCondition(condition.left) || this.evaluateCondition(condition.right);
+    }
+    if (condition.operator === '!') {
+      return !this.evaluateCondition(condition.operand);
+    }
+    
+    // Обычные операторы сравнения
     const left = this.resolveValue(condition.left);
     const right = this.resolveValue(condition.right);
     
