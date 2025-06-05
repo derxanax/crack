@@ -1,0 +1,125 @@
+{
+  "name": "Crack Dark Theme",
+  "type": "dark",
+  "colors": {
+    "editor.background": "#1e1e1e",
+    "editor.foreground": "#d4d4d4",
+    "editor.lineHighlightBackground": "#2a2d32",
+    "editor.selectionBackground": "#264f78",
+    "editor.selectionHighlightBackground": "#add6ff26",
+    "editor.wordHighlightBackground": "#575757b8",
+    "editor.wordHighlightStrongBackground": "#004972b8",
+    "editorCursor.foreground": "#aeafad",
+    "editorIndentGuide.background": "#404040",
+    "editorIndentGuide.activeBackground": "#707070",
+    "editorLineNumber.foreground": "#858585",
+    "editorLineNumber.activeForeground": "#c6c6c6"
+  },
+  "tokenColors": [
+    {
+      "name": "Crack Keywords",
+      "scope": [
+        "keyword.control.crack",
+        "keyword.control.conditional.crack",
+        "keyword.control.loop.crack"
+      ],
+      "settings": {
+        "foreground": "#569cd6",
+        "fontStyle": "bold"
+      }
+    },
+    {
+      "name": "Crack Strings",
+      "scope": "string.quoted.double.crack",
+      "settings": {
+        "foreground": "#ce9178"
+      }
+    },
+    {
+      "name": "Crack Numbers",
+      "scope": "constant.numeric.crack",
+      "settings": {
+        "foreground": "#b5cea8"
+      }
+    },
+    {
+      "name": "Crack Operators",
+      "scope": [
+        "keyword.operator.arithmetic.crack",
+        "keyword.operator.assignment.crack",
+        "keyword.operator.comparison.crack",
+        "keyword.operator.logical.crack"
+      ],
+      "settings": {
+        "foreground": "#d4d4d4"
+      }
+    },
+    {
+      "name": "Crack Variables",
+      "scope": "variable.name.crack",
+      "settings": {
+        "foreground": "#9cdcfe"
+      }
+    },
+    {
+      "name": "Crack Functions",
+      "scope": "entity.name.function.crack",
+      "settings": {
+        "foreground": "#dcdcaa",
+        "fontStyle": "bold"
+      }
+    },
+    {
+      "name": "Crack Modules",
+      "scope": "entity.name.type.module.crack",
+      "settings": {
+        "foreground": "#4ec9b0",
+        "fontStyle": "italic"
+      }
+    },
+    {
+      "name": "Crack Module Functions",
+      "scope": "entity.name.function.module.crack",
+      "settings": {
+        "foreground": "#dcdcaa"
+      }
+    },
+    {
+      "name": "Crack Comments",
+      "scope": "comment.block.crack",
+      "settings": {
+        "foreground": "#6a9955",
+        "fontStyle": "italic"
+      }
+    },
+    {
+      "name": "Crack Brackets",
+      "scope": "punctuation.section.brackets.crack",
+      "settings": {
+        "foreground": "#ffd700"
+      }
+    },
+    {
+      "name": "Crack Function Calls",
+      "scope": "meta.function-call.module.crack",
+      "settings": {
+        "foreground": "#4fc1ff"
+      }
+    },
+    {
+      "name": "Crack Escape Characters",
+      "scope": "constant.character.escape.crack",
+      "settings": {
+        "foreground": "#d7ba7d"
+      }
+    },
+    {
+      "name": "Crack Built-in Commands",
+      "scope": "keyword.control.crack",
+      "settings": {
+        "foreground": "#c586c0",
+        "fontStyle": "bold"
+      }
+    }
+  ]
+}
